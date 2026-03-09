@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MLS Top Goalscorers Builder</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #111;
+  font-family: -apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  color: #fff;
+  padding: 20px;
+}
+h1 { font-size: 17px; font-weight: 700; color: #bbb; margin-bottom: 4px; }
+.subtitle { font-size: 12px; color: #444; margin-bottom: 16px; }
+
+.top-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+.season-box { display: flex; align-items: center; gap: 8px; background: #1c1c1c; border: 1px solid #2a2a2a; border-radius: 6px; padding: 7px 13px; }
+.season-box span { color: #555; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+.season-box input { background: none; border: none; color: #fff; font-size: 15px; font-weight: 800; width: 54px; outline: none; }
+.export-btn { background: #0055ff; color: #fff; border: none; border-radius: 6px; padding: 9px 20px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s; }
+.export-btn:hover { background: #0044dd; }
+.export-btn:disabled { background: #333; cursor: not-allowed; }
+
+/* Player input grid */
+.pgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 20px; }
+.pc { background: #181818; border: 1px solid #242424; border-radius: 7px; padding: 10px; display: flex; flex-direction: column; gap: 5px; }
+.pc .bar { height: 3px; border-radius: 2px; margin-bottom: 3px; }
+.pc .lbl { color: #2e2e2e; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+.photo-drop { height: 78px; background: #111; border: 1.5px dashed #222; border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: #252525; font-size: 11px; cursor: pointer; flex-shrink: 0; }
+.photo-drop:hover { border-color: #333; color: #333; }
+.photo-drop img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+.pc input[type=text], .pc input[type=number], .pc select {
+  background: #101010; border: 1px solid #1e1e1e; color: #bbb; border-radius: 3px;
+  padding: 3px 6px; font-size: 10px; width: 100%; outline: none;
+  font-family: inherit;
+}
+.pc input[type=number] { font-size: 13px; font-weight: 800; color: #fff; }
+.pc .sr { display: flex; align-items: center; gap: 4px; }
+.pc .sr span { color: #2a2a2a; font-size: 9px; width: 20px; flex-shrink: 0; }
+.cc-row { display: none; align-items: center; gap: 5px; }
+.cc-row label { color: #333; font-size: 9px; }
+
+/* Preview wrapper */
+.preview-outer { overflow-x: auto; border-radius: 4px; }
+.preview-scaler { transform-origin: top left; display: block; }
+
+/* ═══════════════════════════════════════
+   THE CARD — exact pixel measurements
+   Source image: 1568×782
+   ─────────────────────────────────────
+   LEFT PANEL:   0–369px  (370px)
+   L-DIVIDER:    370–372  (~3px, soft)
+   COL1:         373–607  (235px)
+   COL-DIV:      608–612  (5px)
+   COL2:         613–847  (235px)
+   COL-DIV:      848–852  (5px)
+   COL3:         853–1087 (235px)
+   COL-DIV:      1088–1091(4px)
+   COL4:         1092–1326(235px)
+   COL-DIV:      1327–1331(5px)
+   COL5:         1332–1567(236px)
+   ─────────────────────────────────────
+   TOP SECTION:  0–474    (475px)
+   H-DIV:        475–492  (18px)
+   GOALS ROW:    493–588  (96px)
+   H-DIV:        589–614  (26px)
+   ASSISTS ROW:  615–719  (105px)
+   H-DIV:        720–736  (17px)
+   GAMES ROW:    737–781  (45px)
+   ═══════════════════════════════════════ */
+
+#card {
+  width: 1568px;
+  height: 782px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  position: relative;
+  background: rgb(204,208,209);
+}
+
+/* ── TOP SECTION ── */
+#top {
+  display: flex;
+  height: 475px;
+  flex-shrink: 0;
+  border-bottom: 18px solid rgb(181,186,191);
+}
+
+/* LEFT PANEL in top section */
+#lp {
+  width: 370px;
+  flex-shrink: 0;
+  background: rgb(204,208,209);
+  border-right: 3px solid rgb(170,175,180);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 22px 26px 24px;
+}
+#lp .grow { flex: 1; }
+#lp-title {
+  font-size: 64px;
+  font-weight: 800;
+  color: rgb(20,22,21);
+  line-height: 1.0;
+  letter-spacing: -1.5px;
+  margin-bottom: 10px;
+}
+#lp-season {
+  font-size: 26px;
+  font-weight: 400;
+  color: rgb(20,22,21);
+  letter-spacing: 0;
+}
+
+/* PLAYER COLUMNS — top section */
+.pc-top {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 5px solid rgb(125,133,134);
+}
+.pc-top:last-child { border-right: none; }
+.pc-top .photo-area { flex: 1; overflow: hidden; min-height: 0; }
+.pc-top .photo-area img { width: 100%; height: 100%; object-fit: cover; object-position: center 8%; display: block; }
+.pc-top .photo-area .blank { width: 100%; height: 100%; }
+/* Name strip — same gray as stat area */
+.pc-top .name-strip {
+  flex-shrink: 0;
+  background: rgb(208,214,217);
+  border-top: 5px solid rgb(170,175,180);
+  padding: 10px 6px 12px;
+  text-align: center;
+}
+.pc-top .name-strip .fn { font-size: 20px; font-weight: 400; color: rgb(20,22,21); line-height: 1.25; }
+.pc-top .name-strip .ln { font-size: 21px; font-weight: 700; color: rgb(20,22,21); line-height: 1.25; }
+.pc-top .name-strip .tn { font-size: 14px; font-weight: 400; color: rgb(20,22,21); opacity: 0.6; margin-top: 2px; }
+
+/* ── STAT ROWS ── */
+.row {
+  display: flex;
+  flex-shrink: 0;
+}
+#goals-row   { height: 96px;  border-bottom: 26px solid rgb(173,180,186); }
+#assists-row { height: 105px; border-bottom: 17px solid rgb(161,168,174); }
+#games-row   { height: 45px;  }
+
+/* Label cells */
+.lc {
+  width: 370px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding-left: 24px;
+  border-right: 3px solid rgb(170,175,180);
+  font-size: 33px;
+  font-weight: 300;
+  color: rgb(20,22,21);
+  letter-spacing: 0;
+}
+#goals-row   .lc { background: rgb(198,205,213); }
+#assists-row .lc { background: rgb(189,198,205); }
+#games-row   .lc { background: rgb(187,194,201); }
+
+/* Number cells */
+.nc {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 5px solid rgb(125,133,134);
+  font-weight: 800;
+  color: rgb(20,22,21);
+  letter-spacing: -2px;
+}
+.nc:last-child { border-right: none; }
+#goals-row   .nc { background: rgb(202,209,214); font-size: 56px; }
+#assists-row .nc { background: rgb(192,200,208); font-size: 56px; }
+#games-row   .nc { background: rgb(187,196,203); font-size: 38px; }
+</style>
+</head>
+<body>
+
+<h1>🏆 MLS Top Goalscorers Builder</h1>
+<p class="subtitle">Fill in the players below → preview updates live → click Export PNG to download.</p>
+
+<div class="top-bar">
+  <div class="season-box">
+    <span>Season</span>
+    <input type="text" id="season-val" value="2026" oninput="setSeason(this.value)">
+  </div>
+  <button class="export-btn" id="exp-btn" onclick="doExport()">⬇ Export PNG  (1568 × 782)</button>
+</div>
+
+<!-- Player inputs -->
+<div class="pgrid" id="pgrid"></div>
+
+<!-- Preview -->
+<div class="preview-outer" id="preview-outer">
+  <div class="preview-scaler" id="scaler">
+
+    <div id="card">
+
+      <!-- TOP SECTION -->
+      <div id="top">
+
+        <!-- LEFT PANEL -->
+        <div id="lp">
+          <!-- MLS Logo -->
+          <svg width="62" height="62" viewBox="0 0 62 62" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+            <rect width="62" height="62" rx="8" fill="#1a1a1a"/>
+            <path d="M31 6.5 L48 13 L48 31 Q48 46 31 52 Q14 46 14 31 L14 13 Z" fill="white"/>
+            <path d="M31 10.5 L44 16 L44 31 Q44 43 31 48 Q18 43 18 31 L18 16 Z" fill="#1a1a1a"/>
+            <text x="31" y="35.5" font-family="'Arial Black',Arial,sans-serif" font-size="11" font-weight="900" fill="white" text-anchor="middle" letter-spacing="0.3">MLS</text>
+            <text x="31" y="26" font-family="Arial,sans-serif" font-size="5.5" fill="white" text-anchor="middle" letter-spacing="1.5">★ ★ ★</text>
+          </svg>
+
+          <div class="grow"></div>
+          <div id="lp-title">Top<br>Goalscorers</div>
+          <div id="lp-season">2026 Season</div>
+        </div>
+
+        <!-- 5 PLAYER COLUMNS -->
+        <div class="pc-top" id="pct0" style="width:235px">
+          <div class="photo-area" id="pa0"><div class="blank" id="bl0"></div></div>
+          <div class="name-strip">
+            <div class="fn" id="fn0"></div>
+            <div class="ln" id="ln0"></div>
+            <div class="tn" id="tn0"></div>
+          </div>
+        </div>
+        <div class="pc-top" id="pct1" style="width:235px">
+          <div class="photo-area" id="pa1"><div class="blank" id="bl1"></div></div>
+          <div class="name-strip">
+            <div class="fn" id="fn1"></div>
+            <div class="ln" id="ln1"></div>
+            <div class="tn" id="tn1"></div>
+          </div>
+        </div>
+        <div class="pc-top" id="pct2" style="width:235px">
+          <div class="photo-area" id="pa2"><div class="blank" id="bl2"></div></div>
+          <div class="name-strip">
+            <div class="fn" id="fn2"></div>
+            <div class="ln" id="ln2"></div>
+            <div class="tn" id="tn2"></div>
+          </div>
+        </div>
+        <div class="pc-top" id="pct3" style="width:235px">
+          <div class="photo-area" id="pa3"><div class="blank" id="bl3"></div></div>
+          <div class="name-strip">
+            <div class="fn" id="fn3"></div>
+            <div class="ln" id="ln3"></div>
+            <div class="tn" id="tn3"></div>
+          </div>
+        </div>
+        <div class="pc-top" id="pct4" style="width:236px; border-right:none">
+          <div class="photo-area" id="pa4"><div class="blank" id="bl4"></div></div>
+          <div class="name-strip">
+            <div class="fn" id="fn4"></div>
+            <div class="ln" id="ln4"></div>
+            <div class="tn" id="tn4"></div>
+          </div>
+        </div>
+
+      </div><!-- end #top -->
+
+      <!-- GOALS ROW -->
+      <div class="row" id="goals-row">
+        <div class="lc">Goals</div>
+        <div class="nc" style="width:235px" id="g0"></div>
+        <div class="nc" style="width:235px" id="g1"></div>
+        <div class="nc" style="width:235px" id="g2"></div>
+        <div class="nc" style="width:235px" id="g3"></div>
+        <div class="nc" style="width:236px;border-right:none" id="g4"></div>
+      </div>
+
+      <!-- ASSISTS ROW -->
+      <div class="row" id="assists-row">
+        <div class="lc">Assists</div>
+        <div class="nc" style="width:235px" id="a0"></div>
+        <div class="nc" style="width:235px" id="a1"></div>
+        <div class="nc" style="width:235px" id="a2"></div>
+        <div class="nc" style="width:235px" id="a3"></div>
+        <div class="nc" style="width:236px;border-right:none" id="a4"></div>
+      </div>
+
+      <!-- GAMES ROW -->
+      <div class="row" id="games-row">
+        <div class="lc">Games</div>
+        <div class="nc" style="width:235px" id="gp0"></div>
+        <div class="nc" style="width:235px" id="gp1"></div>
+        <div class="nc" style="width:235px" id="gp2"></div>
+        <div class="nc" style="width:235px" id="gp3"></div>
+        <div class="nc" style="width:236px;border-right:none" id="gp4"></div>
+      </div>
+
+    </div><!-- #card -->
+  </div><!-- .preview-scaler -->
+</div><!-- .preview-outer -->
+
+<p style="color:#2a2a2a;font-size:11px;text-align:center;margin-top:6px" id="scale-note"></p>
+
+<script>
+const TEAMS = {
+  "Inter Miami":            "#F4A7BE",
+  "LAFC":                   "#C49A6C",
+  "Nashville SC":           "#ECE83A",
+  "FC Cincinnati":          "#F05323",
+  "New York City FC":       "#6CACE4",
+  "Atlanta United":         "#80000A",
+  "Austin FC":              "#00B140",
+  "Charlotte FC":           "#1A85C8",
+  "Chicago Fire":           "#C0102B",
+  "Colorado Rapids":        "#862633",
+  "Columbus Crew":          "#FEDD00",
+  "D.C. United":            "#231F20",
+  "FC Dallas":              "#BF0D3E",
+  "Houston Dynamo":         "#F4911E",
+  "LA Galaxy":              "#00245D",
+  "Minnesota United":       "#3A1777",
+  "CF Montréal":            "#003DA5",
+  "New England Revolution": "#003087",
+  "New York Red Bulls":     "#ED1E36",
+  "Orlando City":           "#633492",
+  "Philadelphia Union":     "#071B2C",
+  "Portland Timbers":       "#004812",
+  "Real Salt Lake":         "#B30838",
+  "San Jose Earthquakes":   "#0D4C86",
+  "Seattle Sounders":       "#5D9732",
+  "Sporting KC":            "#002F6C",
+  "St. Louis City SC":      "#C0102B",
+  "Toronto FC":             "#B81137",
+  "Vancouver Whitecaps":    "#9CCAE2",
+  "San Diego FC":           "#003087",
+  "Custom":                 "#888888"
+};
+
+function buildInputs() {
+  const grid = document.getElementById('pgrid');
+  for (let i = 0; i < 5; i++) {
+    const opts = Object.keys(TEAMS).map(t =>
+      `<option value="${t}"${t==='Inter Miami'?' selected':''}>${t}</option>`
+    ).join('');
+    grid.innerHTML += `
+      <div class="pc">
+        <div class="bar" id="bar${i}" style="background:${TEAMS['Inter Miami']}"></div>
+        <div class="lbl">Player ${i+1}</div>
+        <label class="photo-drop" id="pdrop${i}">
+          <span id="pdrop-txt${i}">📷 Upload photo</span>
+          <input type="file" accept="image/*" style="display:none" onchange="loadImg(${i},this)">
+        </label>
+        <input type="text"   placeholder="First name"          oninput="setFN(${i},this.value)">
+        <input type="text"   placeholder="Last name (bold)"    oninput="setLN(${i},this.value)">
+        <input type="text"   placeholder="Team label (e.g. Miami)" oninput="setTN(${i},this.value)">
+        <select onchange="setTeam(${i},this.value)">${opts}</select>
+        <div class="cc-row" id="ccrow${i}">
+          <label>Color:</label>
+          <input type="color" value="#888888" oninput="setCC(${i},this.value)">
+        </div>
+        <div class="sr"><span>Goals</span><input type="number" placeholder="–" oninput="setStat(${i},'g',this.value)"></div>
+        <div class="sr"><span>Ast</span>  <input type="number" placeholder="–" oninput="setStat(${i},'a',this.value)"></div>
+        <div class="sr"><span>GP</span>   <input type="number" placeholder="–" oninput="setStat(${i},'gp',this.value)"></div>
+      </div>`;
+  }
+}
+
+function loadImg(i, inp) {
+  if (!inp.files[0]) return;
+  const r = new FileReader();
+  r.onload = e => {
+    const pa = document.getElementById('pa'+i);
+    pa.innerHTML = `<img src="${e.target.result}" alt="">`;
+  };
+  r.readAsDataURL(inp.files[0]);
+}
+
+function setFN(i,v) { document.getElementById('fn'+i).textContent = v; }
+function setLN(i,v) { document.getElementById('ln'+i).textContent = v; }
+function setTN(i,v) { document.getElementById('tn'+i).textContent = v; }
+
+function setTeam(i, team) {
+  const col = team === 'Custom'
+    ? document.querySelector(`#ccrow${i} input[type=color]`).value
+    : TEAMS[team];
+  applyColor(i, col);
+  document.getElementById('ccrow'+i).style.display = team==='Custom' ? 'flex' : 'none';
+}
+function setCC(i, col) { applyColor(i, col); }
+function applyColor(i, col) {
+  document.getElementById('bar'+i).style.background = col;
+  document.getElementById('pct'+i).style.background = col;
+  document.getElementById('bl'+i).style.background  = col;
+}
+
+function setStat(i, t, v) {
+  const map = { g:'g', a:'a', gp:'gp' };
+  document.getElementById(map[t]+i).textContent = v;
+}
+
+function setSeason(v) {
+  document.getElementById('lp-season').textContent = v + ' Season';
+}
+
+function scaleCard() {
+  const avail = window.innerWidth - 44;
+  const s = Math.min(1, avail / 1568);
+  const scaler = document.getElementById('scaler');
+  scaler.style.transform = `scale(${s})`;
+  scaler.style.width  = '1568px';
+  scaler.style.height = '782px';
+  document.getElementById('preview-outer').style.height = Math.ceil(782*s+2)+'px';
+  document.getElementById('scale-note').textContent =
+    `Preview at ${Math.round(s*100)}% · Exported PNG: 1568 × 782 px`;
+}
+
+async function doExport() {
+  const btn = document.getElementById('exp-btn');
+  btn.disabled = true; btn.textContent = 'Exporting…';
+
+  if (!window.html2canvas) {
+    await new Promise((res,rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      s.onload=res; s.onerror=rej; document.head.appendChild(s);
+    });
+  }
+
+  // Reset scale for export
+  const scaler = document.getElementById('scaler');
+  const prev = scaler.style.transform;
+  scaler.style.transform = 'scale(1)';
+  document.getElementById('preview-outer').style.height = '782px';
+  await new Promise(r=>setTimeout(r,150));
+
+  const canvas = await html2canvas(document.getElementById('card'), {
+    scale: 2, useCORS: true, allowTaint: true,
+    width: 1568, height: 782, windowWidth: 1568, windowHeight: 782,
+    backgroundColor: null
+  });
+
+  scaler.style.transform = prev;
+  scaleCard();
+
+  const a = document.createElement('a');
+  a.download = `mls_goalscorers_${document.getElementById('season-val').value}.png`;
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+
+  btn.disabled = false; btn.textContent = '⬇ Export PNG (1568 × 782)';
+}
+
+buildInputs();
+scaleCard();
+window.addEventListener('resize', scaleCard);
+</script>
+</body>
+</html>
